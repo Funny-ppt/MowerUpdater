@@ -11,10 +11,10 @@ internal class UpdaterConfig
     "ignores": [
         "*.yml",
         "*.json",
-        "tmp/*",
-        "log/*",
-        "screenshot/**/*",
-        "adb-buildin/*"
+        "tmp/",
+        "log/",
+        "screenshot/",
+        "adb-buildin/"
     ],
     "rsync_base_addr": "/mower",
     "rsync_parameters": [

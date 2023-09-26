@@ -13,5 +13,7 @@ namespace MowerUpdater
     /// </summary>
     public partial class App : Application
     {
+        static internal Action<string> Logger { get; set; }
+        static public void Log(string msg) => Logger?.Invoke(msg);
     }
 }

@@ -1,8 +1,9 @@
-﻿using System.Linq;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +11,6 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
 
 namespace MowerUpdater;
 
@@ -23,11 +23,13 @@ internal class ViewModel : INotifyPropertyChanged
     public ViewModel() { }
 
     HttpClient _client = new();
-    CancellationTokenSource _cts;
+    CancellationTokenSource _cts1; // 用于取消镜像版本搜索功能
+    CancellationTokenSource _cts2; // 用于取消后台目录遍历功能
     string _configPath = string.Empty;
     string _mirror = string.Empty;
     ObservableCollection<VersionInfo> _versions = new();
-    string _selectedVersion = string.Empty;
+    ObservableCollection<LocalVersionInfo> _possibleInstallPaths = new();
+    LocalVersionInfo _selectedInstallPath = null;
     string _installPath = string.Empty;
     bool _busy = false;
     string _outputLogs = string.Empty;
@@ -72,7 +74,48 @@ internal class ViewModel : INotifyPropertyChanged
         });
     }
 
+    void SearchPossibleInstallPaths(string path0, CancellationToken token)
+    {
+        var path = path0.Replace('\\', '/');
+        var parent = path.EndsWith("/")
+            ? Path.GetDirectoryName(path.Substring(0, path.Length - 1))
+            : Path.GetDirectoryName(path);
+        if (parent != null && Directory.Exists(parent))
+        {
+            foreach (var dir in Directory.EnumerateDirectories(parent))
+            {
+                if (token.IsCancellationRequested) return;
+                if (CheckIfMowerInstalled(dir))
+                {
+                    if (token.IsCancellationRequested) return;
+                    App.Current.Dispatcher.Invoke(() => _possibleInstallPaths.Add(new LocalVersionInfo(dir, true)));
+                }
+            }
+        }
+        if (Directory.Exists(path0))
+        {
+            foreach (var dir in Directory.EnumerateDirectories(path0))
+            {
+                if (token.IsCancellationRequested) return;
+                if (CheckIfMowerInstalled(dir))
+                {
+                    if (token.IsCancellationRequested) return;
+                    App.Current.Dispatcher.Invoke(() => _possibleInstallPaths.Add(new LocalVersionInfo(dir, true)));
+                }
+            }
+        }
+    }
+    bool CheckIfMowerInstalled(string path)
+    {
+        //var mower1 = Path.Combine(path, "mower.exe");
+        //var mower2 = Path.Combine(path, "Mower0.exe");
+        //return File.Exists(mower1) && File.Exists(mower2);
+
+        return File.Exists(Path.Combine(path, "mower.exe"));
+    }
+
     public ObservableCollection<VersionInfo> Versions => _versions;
+    public ObservableCollection<LocalVersionInfo> PossibleInstallPaths => _possibleInstallPaths;
     public string ConfigPath
     {
         get => _configPath;
@@ -98,23 +141,23 @@ internal class ViewModel : INotifyPropertyChanged
                 _mirror = value;
                 PropertyChanged?.Invoke(this, new(nameof(Mirror)));
                 
-                _cts?.Cancel();
-                _cts?.Dispose();
-                _cts = new CancellationTokenSource();
+                _cts1?.Cancel();
+                _cts1?.Dispose();
+                _cts1 = new CancellationTokenSource();
                 _versions.Clear();
-                Task.Run(() => FetchVersions(_cts.Token));
+                Task.Run(() => FetchVersions(_cts1.Token));
             }
         }
     }
-    public string SelectedVersion
+    public LocalVersionInfo SelectedInstallPath
     {
-        get => _selectedVersion;
+        get => _selectedInstallPath;
         set
         {
-            if (value != _selectedVersion)
+            if (value != _selectedInstallPath)
             {
-                _selectedVersion = value;
-                PropertyChanged?.Invoke(this, new(nameof(SelectedVersion)));
+                _selectedInstallPath = value;
+                PropertyChanged?.Invoke(this, new(nameof(SelectedInstallPath)));
             }
         }
     }
@@ -127,6 +170,28 @@ internal class ViewModel : INotifyPropertyChanged
             {
                 _installPath = value;
                 PropertyChanged?.Invoke(this, new(nameof(InstallPath)));
+
+                _possibleInstallPaths.Clear();
+                if (!Directory.Exists(_installPath) || !Directory.EnumerateFileSystemEntries(_installPath).Any())
+                {
+                    _possibleInstallPaths.Add(new LocalVersionInfo(_installPath, false));
+                }
+                else
+                {
+                    if (CheckIfMowerInstalled(_installPath))
+                    {
+                        _possibleInstallPaths.Add(new LocalVersionInfo(_installPath, true));
+                    }
+                    else
+                    {
+                        _possibleInstallPaths.Add(new LocalVersionInfo(_installPath, false));
+                    }
+                }
+
+                _cts2?.Cancel();
+                _cts2?.Dispose();
+                _cts2 = new CancellationTokenSource();
+                Task.Run(() => SearchPossibleInstallPaths(_installPath, _cts2.Token));
             }
         }
     }
@@ -171,7 +236,9 @@ internal class ViewModel : INotifyPropertyChanged
 
     public void Load(string configPath)
     {
-        var json = JsonDocument.Parse(File.OpenRead(configPath));
+        App.Log($"Load 尝试读取文件 {configPath}");
+        var json = JsonDocument.Parse(File.ReadAllText(configPath));
+        App.Log($"Load 读取文件 {configPath} 完成");
         var conf = json.RootElement;
         Mirror = conf.GetProperty("mirror").GetString();
         InstallPath = Path.Combine(conf.GetProperty("install_dir").GetString(),
@@ -187,6 +254,7 @@ internal class ViewModel : INotifyPropertyChanged
 
     public void Save()
     {
+        App.Log($"Save 尝试读取然后写入文件 {_configPath}");
         using var f = File.Open(_configPath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
         if (f.Length == 0)
         {
@@ -199,8 +267,8 @@ internal class ViewModel : INotifyPropertyChanged
             conf["mirror"] = _mirror.Substring(0, _mirror.Length - 1);
         else
             conf["mirror"] = _mirror;
-        conf["install_dir"] = Path.GetDirectoryName(_installPath);
-        conf["dir_name"] = Path.GetFileName(_installPath);
+        conf["install_dir"] = Path.GetDirectoryName(_selectedInstallPath.Path);
+        conf["dir_name"] = Path.GetFileName(_selectedInstallPath.Path);
         var jarray = new JsonArray();
         foreach (var ignore in ParseIgnorePaths(_ignorePaths))
         {
@@ -211,5 +279,6 @@ internal class ViewModel : INotifyPropertyChanged
         using var writer = new Utf8JsonWriter(f);
         conf.WriteTo(writer);
         f.SetLength(f.Position);
+        App.Log($"Save 读取然后写入文件 {_configPath}完成");
     }
 }

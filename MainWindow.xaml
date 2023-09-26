@@ -29,7 +29,7 @@
         <Style x:Key="InstallButtonStyle" BasedOn="{StaticResource Base}">
             <Setter Property="Control.IsEnabled" Value="True"/>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding SelectedItem, ElementName=VersionsComboBox}" Value="{x:Null}">
+                <DataTrigger Binding="{Binding SelectedItem, ElementName=PossibleInstallPathsComboBox}" Value="{x:Null}">
                     <Setter Property="Control.IsEnabled" Value="False"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Busy}" Value="True">
@@ -79,9 +79,11 @@
                 Style="{StaticResource ResourceKey=Base}"
                 Content="选择目录" Click="SelectInstallPathButtonClicked" />
         <Label Grid.Row="4" Grid.Column="0">忽略目录</Label>
-        <TextBox Grid.Row="4" Grid.Column="1" Grid.RowSpan="2" Margin="5" Style="{StaticResource ResourceKey=Base}"
-                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True"
+        <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource ResourceKey=Base}"
                  Text="{Binding IgnorePaths}" x:Name="IgnorePathsTextBox" />
+        <Label Grid.Row="5" Grid.Column="0">确认安装目录</Label>
+        <ComboBox Grid.Row="5" Grid.Column="1" Style="{StaticResource ResourceKey=Base}"
+                  ItemsSource="{Binding PossibleInstallPaths}" x:Name="PossibleInstallPathsComboBox" SelectedItem="{Binding SelectedInstallPath, Mode=TwoWay}" />
         <Button Grid.Row="5" Grid.Column="2" Style="{StaticResource ResourceKey=InstallButtonStyle}"
                 Content="安装" Click="InstallButtonClicked"/>
         <ScrollViewer Grid.Row="6" Grid.ColumnSpan="3" x:Name="ConsoleOutputScrollViewer" VerticalScrollBarVisibility="Auto">

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -36,7 +37,30 @@ namespace MowerUpdater
 
         public MainWindow()
         {
+            // App.Logger = _buffer.Enqueue;
             InitializeComponent();
+
+
+            if (VersionsComboBox.ItemsSource is INotifyCollectionChanged col1)
+            {
+                col1.CollectionChanged += (e, args) =>
+                {
+                    if (args.OldItems == null || args.OldItems.Count == 0)
+                    {
+                        VersionsComboBox.SelectedIndex = 0;
+                    }
+                };
+            }
+            if (PossibleInstallPathsComboBox.ItemsSource is INotifyCollectionChanged col2)
+            {
+                col2.CollectionChanged += (e, args) =>
+                {
+                    if (args.OldItems == null || args.OldItems.Count == 0)
+                    {
+                        PossibleInstallPathsComboBox.SelectedIndex = 0;
+                    }
+                };
+            }
 
             var configDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -50,21 +74,12 @@ namespace MowerUpdater
             }
             if (!File.Exists(configPath))
             {
+                App.Log($"MainWindow 尝试写入文件 {configPath}");
                 File.WriteAllText(configPath, UpdaterConfig.DefaultConfigJson);
+                App.Log($"MainWindow 写入文件 {configPath} 完成");
             }
-
             ViewModel.ConfigPath = configPath;
 
-            if (VersionsComboBox.ItemsSource is INotifyCollectionChanged col)
-            {
-                col.CollectionChanged += (e, args) =>
-                {
-                    if (args.OldItems == null || args.OldItems.Count == 0)
-                    {
-                        VersionsComboBox.SelectedIndex = 0;
-                    }
-                };
-            }
 
             updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(125) };
             updateTimer.Tick += UpdateUIPerTick;
@@ -79,7 +94,7 @@ namespace MowerUpdater
             var result = openFileDialog.ShowDialog();
             if (result == System.Windows.Forms.DialogResult.OK)
             {
-                ConfigPathTextBox.Text = openFileDialog.FileName;
+                ViewModel.ConfigPath = openFileDialog.FileName;
             }
         }
 
@@ -90,7 +105,7 @@ namespace MowerUpdater
 
             if (result == System.Windows.Forms.DialogResult.OK)
             {
-                InstallPathTextBox.Text = folderDialog.SelectedPath;
+                ViewModel.InstallPath = folderDialog.SelectedPath;
             }
         }
 
@@ -99,6 +114,20 @@ namespace MowerUpdater
             ViewModel.Busy = true;
             try
             {
+                var local = ViewModel.SelectedInstallPath;
+                if (local.IsInstalled == false
+                    && Directory.Exists(local.Path)
+                    && Directory.EnumerateDirectories(local.Path).Any())
+                {
+                    var result = System.Windows.Forms.MessageBox.Show(
+                        $"将在 {local.Path} 下执行全新安装，这将会清楚该目录下的其余文件，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                    if (result != System.Windows.Forms.DialogResult.OK)
+                    {
+                        ViewModel.Busy = false;
+                        return;
+                    }
+                }
+
                 int interval = 1000;
                 int retries = 3;
                 while (retries-- >= 0)

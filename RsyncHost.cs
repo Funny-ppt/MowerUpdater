@@ -104,7 +104,9 @@ internal class RsyncHost : IDisposable
         if (disposed) throw new ObjectDisposedException(nameof(RsyncHost));
         if (!Active)
         {
+            App.Log($"RsyncHost.Start 尝试读取文件 {configPath}");
             var conf = JsonNode.Parse(File.ReadAllText(configPath));
+            App.Log($"RsyncHost.Start 读取文件完成 {configPath}");
 
             BeginHostStart?.Invoke(this);
             rsyncProcess = new Process()
