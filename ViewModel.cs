@@ -88,7 +88,8 @@ internal class ViewModel : INotifyPropertyChanged
                 if (token.IsCancellationRequested) return;
                 if (CheckIfMowerInstalled(dir))
                 {
-                    if (token.IsCancellationRequested || dir == path0) return;
+                    if (token.IsCancellationRequested) return;
+                    if (dir == path0) continue;
                     App.Current.Dispatcher.Invoke(() => _possibleInstallPaths.Add(new LocalVersionInfo(dir, true)));
                 }
             }
