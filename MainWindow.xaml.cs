@@ -120,7 +120,7 @@ namespace MowerUpdater
                     && Directory.EnumerateFileSystemEntries(local.Path).Any())
                 {
                     var result = System.Windows.Forms.MessageBox.Show(
-                        $"将在 {local.Path} 下执行全新安装，这将会清楚该目录下的其余文件，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                        $"将在 {local.Path} 下执行全新安装，这将会删除该目录下的其余文件，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
                     if (result != System.Windows.Forms.DialogResult.OK)
                     {
                         ViewModel.Busy = false;
