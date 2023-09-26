@@ -21,7 +21,7 @@ namespace MowerUpdater
         internal ViewModel ViewModel => DataContext as ViewModel;
         RsyncHost _host;
         ConcurrentQueue<string> _buffer = new();
-        DispatcherTimer updateTimer;
+        DispatcherTimer _updateTimer;
         RsyncHost host
         {
             get => _host;
@@ -37,12 +37,12 @@ namespace MowerUpdater
 
         public MainWindow()
         {
-            // App.Logger = _buffer.Enqueue;
+            App.Logger = _buffer.Enqueue;
             InitializeComponent();
 
 
-            if (VersionsComboBox.ItemsSource is INotifyCollectionChanged col1)
-            {
+            if (VersionsComboBox.ItemsSource is INotifyCollectionChanged col1) 
+            { // 稍稍改变多选框的逻辑，使得有可选项时立刻选中第一项
                 col1.CollectionChanged += (e, args) =>
                 {
                     if (args.OldItems == null || args.OldItems.Count == 0)
@@ -74,16 +74,15 @@ namespace MowerUpdater
             }
             if (!File.Exists(configPath))
             {
-                App.Log($"MainWindow 尝试写入文件 {configPath}");
                 File.WriteAllText(configPath, UpdaterConfig.DefaultConfigJson);
-                App.Log($"MainWindow 写入文件 {configPath} 完成");
             }
             ViewModel.ConfigPath = configPath;
 
 
-            updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(125) };
-            updateTimer.Tick += UpdateUIPerTick;
-            updateTimer.Start();
+            // 缓冲区刷新计时器
+            _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(125) };
+            _updateTimer.Tick += UpdateUIPerTick;
+            _updateTimer.Start();
         }
 
         private void SelectConfigPathButtonClicked(object sender, RoutedEventArgs e)
@@ -109,6 +108,43 @@ namespace MowerUpdater
             }
         }
 
+        private RsyncHost InitilizeHost()
+        {
+            var host = new RsyncHost();
+            host.OutputDataReceived += (sender, args) =>
+            {
+                if (args.Data != null)
+                {
+                    _buffer.Enqueue(args.Data);
+                }
+            };
+            host.ErrorDataReceived += (sender, args) =>
+            {
+                if (args.Data != null)
+                {
+                    _buffer.Enqueue(args.Data);
+                }
+            };
+            host.HostExited += (sender, args) =>
+            {
+                Dispatcher.Invoke(() => {
+                    if (host.ExitCode != 0)
+                    {
+                        ViewModel.OutputLogs += "=================== Terminate ===================\n";
+                        System.Windows.Forms.MessageBox.Show(
+                            $"rsync返回值: {host.ExitCode}\n详细错误请参见底部文本框输出", "安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        ViewModel.OutputLogs += "====================== Done ======================\n";
+                        System.Windows.Forms.MessageBox.Show(
+                            $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                });
+            };
+            return host;
+        }
+
         private async void InstallButtonClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.Busy = true;
@@ -123,14 +159,13 @@ namespace MowerUpdater
                         $"将在 {local.Path} 下执行全新安装，这将会删除该目录下的其余文件，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
                     if (result != System.Windows.Forms.DialogResult.OK)
                     {
-                        ViewModel.Busy = false;
                         return;
                     }
                 }
 
-                int interval = 1000;
-                int retries = 3;
-                while (retries-- >= 0)
+                int interval = 1000;    // 之前因为没关闭文件流导致报错的一个修复尝试
+                int retries = 3;        // 想了想也没必要删除
+                while (retries-- >= 0)  // 是不是很像TCP超时重传
                 {
                     try
                     {
@@ -140,50 +175,15 @@ namespace MowerUpdater
                     catch
                     {
                         await Task.Delay(interval);
-                        interval *= 2;
+                        //interval *= 2;
                         if (retries == 0) throw;
                     }
                 }
                 Dispatcher.Invoke(() => ViewModel.OutputLogs = string.Empty);
-                host = new RsyncHost();
-                host.OutputDataReceived += (sender, args) =>
-                {
-                    if (args.Data != null)
-                    {
-                        _buffer.Enqueue(args.Data);
-                    }
-                };
-                host.ErrorDataReceived += (sender, args) =>
-                {
-                    if (args.Data != null)
-                    {
-                        _buffer.Enqueue(args.Data);
-                    }
-                };
-                host.HostExited += (sender, args) =>
-                {
-                    Dispatcher.Invoke(() => {
-                        ViewModel.Busy = false;
-                        ViewModel.OutputLogs +=
-                            host.ExitCode == 0 ?
-                                "====================== Done ======================\n"
-                              : "=================== Terminate ===================\n";
-                        if (host.ExitCode != 0)
-                        {
-                            System.Windows.Forms.MessageBox.Show(
-                                $"rsync返回值: {host.ExitCode}\n详细错误请参见底部文本框输出", "安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                        else
-                        {
-                            System.Windows.Forms.MessageBox.Show(
-                                $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
-                    });
-                };
-                if (!host.Start(ViewModel.ConfigPath, ((VersionInfo)VersionsComboBox.SelectedValue).VersionName))
-                {
-                    ViewModel.Busy = false;
-                }
+
+                host = InitilizeHost();
+                host.Start(ViewModel.ConfigPath, ((VersionInfo)VersionsComboBox.SelectedValue).VersionName);
+                await host.WaitForExit();
             }
             catch (Exception ex)
             {
@@ -191,8 +191,11 @@ namespace MowerUpdater
                 {
                     System.Windows.Forms.MessageBox.Show(
                         ex.ToString(), "安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    ViewModel.Busy = false;
                 });
+            }
+            finally
+            {
+                ViewModel.Busy = false;
             }
         }
 
@@ -213,7 +216,7 @@ namespace MowerUpdater
         }
 
 
-        private void UpdateUIPerTick(object sender, EventArgs e)
+        private void UpdateUIPerTick(object sender, EventArgs e) // 将缓冲区的内容一次性推到文本框内容
         {
             var sb = new StringBuilder();
             while (_buffer.TryDequeue(out var item))

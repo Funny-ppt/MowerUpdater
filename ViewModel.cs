@@ -18,6 +18,7 @@ internal class ViewModel : INotifyPropertyChanged
 {
     static ViewModel()
     {
+        // 老的.NET框架居然是默认tls1.0, 还是抓包才发现这会导致直接被新版nginx拒绝
         System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
     }
     public ViewModel() { }
@@ -37,7 +38,7 @@ internal class ViewModel : INotifyPropertyChanged
 
     static Regex ItemRegex = new(@"<a href=""(.*)"">", RegexOptions.Compiled);
     async Task FetchVersions(CancellationToken token)
-    {
+    { // 后台获取版本列表
         var resp = await _client.GetAsync(_mirror);
         resp.EnsureSuccessStatusCode();
 
@@ -55,7 +56,7 @@ internal class ViewModel : INotifyPropertyChanged
         Task.WaitAll(tasks.ToArray(), token);
     }
     async Task FetchVersionDetails(string version, CancellationToken token)
-    {
+    { // 后台下载版本细节信息
         var url = $"{_mirror}/{version}/version.json";
         var resp = await _client.GetAsync(url, token);
         resp.EnsureSuccessStatusCode();
@@ -75,25 +76,25 @@ internal class ViewModel : INotifyPropertyChanged
     }
 
     void SearchPossibleInstallPaths(string path0, CancellationToken token)
-    {
+    { // 后台查找所有可能是Mower安装目录的目录
         var path = path0.Replace('\\', '/');
         var parent = path.EndsWith("/")
             ? Path.GetDirectoryName(path.Substring(0, path.Length - 1))
             : Path.GetDirectoryName(path);
         if (parent != null && Directory.Exists(parent))
-        {
+        { // 遍历父文件夹的其余目录
             foreach (var dir in Directory.EnumerateDirectories(parent))
             {
                 if (token.IsCancellationRequested) return;
                 if (CheckIfMowerInstalled(dir))
                 {
-                    if (token.IsCancellationRequested) return;
+                    if (token.IsCancellationRequested || dir == path0) return;
                     App.Current.Dispatcher.Invoke(() => _possibleInstallPaths.Add(new LocalVersionInfo(dir, true)));
                 }
             }
         }
         if (Directory.Exists(path0))
-        {
+        { // 遍历子文件夹
             foreach (var dir in Directory.EnumerateDirectories(path0))
             {
                 if (token.IsCancellationRequested) return;
@@ -236,9 +237,7 @@ internal class ViewModel : INotifyPropertyChanged
 
     public void Load(string configPath)
     {
-        App.Log($"Load 尝试读取文件 {configPath}");
         var json = JsonDocument.Parse(File.ReadAllText(configPath));
-        App.Log($"Load 读取文件 {configPath} 完成");
         var conf = json.RootElement;
         Mirror = conf.GetProperty("mirror").GetString();
         InstallPath = Path.Combine(conf.GetProperty("install_dir").GetString(),
@@ -254,7 +253,6 @@ internal class ViewModel : INotifyPropertyChanged
 
     public void Save()
     {
-        App.Log($"Save 尝试读取然后写入文件 {_configPath}");
         using var f = File.Open(_configPath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
         if (f.Length == 0)
         {
@@ -279,6 +277,5 @@ internal class ViewModel : INotifyPropertyChanged
         using var writer = new Utf8JsonWriter(f);
         conf.WriteTo(writer);
         f.SetLength(f.Position);
-        App.Log($"Save 读取然后写入文件 {_configPath}完成");
     }
 }

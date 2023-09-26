@@ -9,8 +9,8 @@ internal class UpdaterConfig
 {
     "mirror": "https://mower.zhaozuohong.vip",
     "ignores": [
-        "*.yml",
-        "*.json",
+        "/*.yml",
+        "/*.json",
         "tmp/",
         "log/",
         "screenshot/",
