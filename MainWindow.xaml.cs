@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -145,23 +146,41 @@ namespace MowerUpdater
             return host;
         }
 
+        private async Task NewInstall(string mirror, string version, string path)
+        {
+            var url = $"{mirror}/{version}.zip";
+            var resp = await ViewModel.Client.GetAsync(url);
+            resp.EnsureSuccessStatusCode();
+
+            var zipArchive = new ZipArchive(await resp.Content.ReadAsStreamAsync());
+            Directory.CreateDirectory(path);
+            zipArchive.ExtractToDirectory(path);
+            var folder = new DirectoryInfo(Path.Combine(path, version));
+            if (folder.Exists)
+            {
+                foreach (var item in folder.EnumerateFileSystemInfos())
+                {
+                    if (item is DirectoryInfo d)
+                    {
+                        d.MoveTo(Path.Combine(path, d.Name));
+                    }
+                    if (item is FileInfo f)
+                    {
+                        f.MoveTo(Path.Combine(path, f.Name));
+                    }
+                }
+                folder.Delete();
+            }
+
+            System.Windows.Forms.MessageBox.Show(
+                $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private async void InstallButtonClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.Busy = true;
             try
             {
-                var local = ViewModel.SelectedInstallPath;
-                if (local.IsInstalled == false
-                    && Directory.Exists(local.Path)
-                    && Directory.EnumerateFileSystemEntries(local.Path).Any())
-                {
-                    var result = System.Windows.Forms.MessageBox.Show(
-                        $"将在 {local.Path} 下执行全新安装，这将会删除该目录下的其余文件，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-                    if (result != System.Windows.Forms.DialogResult.OK)
-                    {
-                        return;
-                    }
-                }
 
                 int interval = 1000;    // 之前因为没关闭文件流导致报错的一个修复尝试
                 int retries = 3;        // 想了想也没必要删除
@@ -180,6 +199,25 @@ namespace MowerUpdater
                     }
                 }
                 Dispatcher.Invoke(() => ViewModel.OutputLogs = string.Empty);
+
+                var local = ViewModel.SelectedInstallPath;
+                if (local.IsInstalled == false
+                    && Directory.Exists(local.Path)
+                    && Directory.EnumerateFileSystemEntries(local.Path).Any())
+                {
+                    var result = System.Windows.Forms.MessageBox.Show(
+                        $"将在 {local.Path} 下执行全新安装，该目录非空，确定要这么做吗？", "安装须知", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                    if (result != System.Windows.Forms.DialogResult.OK)
+                    {
+                        return;
+                    }
+                }
+
+                if (local.IsInstalled == false)
+                {
+                    await NewInstall(ViewModel.Mirror, ((VersionInfo)VersionsComboBox.SelectedValue).VersionName, ViewModel.InstallPath);
+                    return;
+                }
 
                 host = InitilizeHost();
                 host.Start(ViewModel.ConfigPath, ((VersionInfo)VersionsComboBox.SelectedValue).VersionName);

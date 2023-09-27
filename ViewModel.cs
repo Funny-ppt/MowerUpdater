@@ -116,6 +116,7 @@ internal class ViewModel : INotifyPropertyChanged
         return File.Exists(Path.Combine(path, "mower.exe"));
     }
 
+    public HttpClient Client => _client;
     public ObservableCollection<VersionInfo> Versions => _versions;
     public ObservableCollection<LocalVersionInfo> PossibleInstallPaths => _possibleInstallPaths;
     public string ConfigPath

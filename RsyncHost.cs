@@ -13,6 +13,7 @@ namespace MowerUpdater;
 internal class RsyncHost : IDisposable
 {
     bool disposed = false;
+    bool _started = false;
     Process _rsyncProcess = null;
     Process rsyncProcess
     {
@@ -23,6 +24,7 @@ internal class RsyncHost : IDisposable
             {
                 _rsyncProcess?.Dispose();
                 _rsyncProcess = value;
+                _started = false;
             }
         }
     }
@@ -33,7 +35,7 @@ internal class RsyncHost : IDisposable
         {
             if (disposed || rsyncProcess == null) return false;
             if (rsyncProcess.HasExited) return false;
-            return true;
+            return _started;
         }
     }
 
@@ -129,6 +131,7 @@ internal class RsyncHost : IDisposable
             var result = MessageBox.Show($"将要执行的命令:\n\"{rsyncProcess.StartInfo.FileName}\" {rsyncProcess.StartInfo.Arguments}", "确认执行", MessageBoxButtons.OKCancel);
             if (result == DialogResult.OK)
             {
+                _started = true;
                 rsyncProcess.Start();
                 rsyncProcess.BeginOutputReadLine();
                 rsyncProcess.BeginErrorReadLine();
@@ -153,7 +156,7 @@ internal class RsyncHost : IDisposable
         {
             await Task.Run(rsyncProcess.WaitForExit); 
         }
-        return rsyncProcess.ExitCode;
+        return ExitCode;
     }
 
     protected virtual void Dispose(bool disposing)
