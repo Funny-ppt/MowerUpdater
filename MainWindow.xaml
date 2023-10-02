@@ -98,7 +98,8 @@
 
         <Label  FontSize="8">Github</Label>
         <TextBlock Grid.Row="7" Grid.ColumnSpan="3" HorizontalAlignment="Center">
-            MowerUpdater v0.0.3 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater">Github项目地址</Hyperlink> BUG反馈和功能请求请在 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater/issues">Issues</Hyperlink> 中提出
+            MowerUpdater v0.0.3 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater" RequestNavigate="Hyperlink_RequestNavigate">Github项目地址</Hyperlink>
+            BUG反馈和功能请求请在 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater/issues" RequestNavigate="Hyperlink_RequestNavigate">Issues</Hyperlink> 中提出
         </TextBlock>
     </Grid>
 </Window>

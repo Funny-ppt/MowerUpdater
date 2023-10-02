@@ -302,5 +302,10 @@ namespace MowerUpdater
 
             ViewModel.OutputLogs += sb.ToString();
         }
+
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            System.Diagnostics.Process.Start(e.Uri.ToString());
+        }
     }
 }
