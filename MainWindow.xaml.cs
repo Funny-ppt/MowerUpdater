@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -146,13 +147,50 @@ namespace MowerUpdater
             return host;
         }
 
+        const float BytesPerMB = 1024 * 1024;
+        private void ProgressUpdated((long downloaded, long total) info)
+        {
+            if (info.total != -1)
+            {
+                _buffer.Enqueue($"Download progress: {info.downloaded / BytesPerMB} / {info.total / BytesPerMB} MB");
+            }
+            else
+            {
+                _buffer.Enqueue($"Download progress: {info.downloaded / BytesPerMB} MB");
+            }
+        }
+
+        private void OnDownloadFailed((int retries, Exception ex) info)
+        {
+            _buffer.Enqueue($"下载失败 #{info.retries}: {info.ex.Message}");
+        }
+
+        private async Task EnsureDownloaded(string url, string file, bool forceRedownload = false)
+        {
+            if (!File.Exists(file) || forceRedownload)
+            {
+                var downloading_file = file + ".downloading";
+                Directory.CreateDirectory(Path.GetDirectoryName(file));
+                using (var fs = File.Open(downloading_file, FileMode.OpenOrCreate, FileAccess.Write))
+                {
+                    var downloader = new FileDownloader(ViewModel.Client, url, fs);
+                    downloader.ProgressUpdated += ProgressUpdated;
+                    downloader.OnFailed += OnDownloadFailed;
+                    await downloader.DownloadAsync();
+                }
+                File.Move(downloading_file, file);
+            }
+        }
+
         private async Task NewInstall(string mirror, string version, string path)
         {
             var url = $"{mirror}/{version}.zip";
-            var resp = await ViewModel.Client.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
 
-            var zipArchive = new ZipArchive(await resp.Content.ReadAsStreamAsync());
+            var dest = Path.Combine(Path.GetTempPath(), "MowerUpdater", $"{version}.zip");
+            await EnsureDownloaded(url, dest);
+
+            using var fs = File.OpenRead(dest);
+            using var zipArchive = new ZipArchive(fs);
             Directory.CreateDirectory(path);
             zipArchive.ExtractToDirectory(path);
             var folder = new DirectoryInfo(Path.Combine(path, version));
