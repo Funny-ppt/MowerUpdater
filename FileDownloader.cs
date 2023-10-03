@@ -127,4 +127,19 @@ internal class FileDownloader
         }
         return true;
     }
+
+    static public async Task EnsureDownloaded(HttpClient client, string url, string file, bool forceRedownload = false, CancellationToken token = default)
+    {
+        if (!File.Exists(file) || forceRedownload)
+        {
+            var downloading_file = file + ".downloading";
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            using (var fs = File.Open(downloading_file, FileMode.OpenOrCreate, FileAccess.Write))
+            {
+                var downloader = new FileDownloader(client, url, fs);
+                await downloader.DownloadAsync(token);
+            }
+            File.Move(downloading_file, file);
+        }
+    }
 }

@@ -104,11 +104,14 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="FileDownloader.cs" />
+    <Compile Include="IDepInstaller.cs" />
     <Compile Include="LocalVersionInfo.cs" />
     <Compile Include="RsyncHost.cs" />
     <Compile Include="UpdaterConfig.cs" />
+    <Compile Include="VCInstaller.cs" />
     <Compile Include="VersionInfo.cs" />
     <Compile Include="ViewModel.cs" />
+    <Compile Include="WebViewInstaller.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

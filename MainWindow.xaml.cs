@@ -110,6 +110,33 @@ namespace MowerUpdater
             }
         }
 
+        private async Task OnInstallSuccess()
+        {
+            _buffer.Enqueue("====================== Done ======================");
+
+            _buffer.Enqueue("正在检查运行Mower的必要依赖");
+
+            var deps = new IDepInstaller[] { new VCInstaller(), new WebViewInstaller() };
+            var depsToInstall = deps.Where(dep => !dep.CheckIfInstalled());
+
+            if (depsToInstall.Any())
+            {
+                var depNames = string.Join(", ", depsToInstall.Select(dep => dep.Name));
+                var result = System.Windows.Forms.MessageBox.Show(
+                    $"检测到以下依赖未被安装: {depNames}, 是否需要安装？", "确认安装依赖", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+                if (result == System.Windows.Forms.DialogResult.OK)
+                {
+                    foreach (var dep in depsToInstall)
+                    {
+                        await dep.Install(ViewModel.Client);
+                    }
+                }
+            }
+
+            System.Windows.Forms.MessageBox.Show(
+                $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private RsyncHost InitilizeHost()
         {
             var host = new RsyncHost();
@@ -129,25 +156,22 @@ namespace MowerUpdater
             };
             host.HostExited += (sender, args) =>
             {
-                Dispatcher.Invoke(() => {
-                    if (host.ExitCode != 0)
-                    {
-                        ViewModel.OutputLogs += "=================== Terminate ===================\n";
-                        System.Windows.Forms.MessageBox.Show(
-                            $"rsync返回值: {host.ExitCode}\n详细错误请参见底部文本框输出", "安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    else
-                    {
-                        ViewModel.OutputLogs += "====================== Done ======================\n";
-                        System.Windows.Forms.MessageBox.Show(
-                            $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                });
+                if (host.ExitCode != 0)
+                {
+                    _buffer.Enqueue("=================== Terminate ===================");
+                    Dispatcher.Invoke(() => System.Windows.Forms.MessageBox.Show(
+                            $"rsync返回值: {host.ExitCode}\n详细错误请参见底部文本框输出", "安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error));
+                }
+                else
+                {
+                    Dispatcher.Invoke(OnInstallSuccess);
+                }
+                
             };
             return host;
         }
 
-        const float BytesPerMB = 1024 * 1024;
+        const long BytesPerMB = 1024 * 1024;
         private void ProgressUpdated((long downloaded, long total) info)
         {
             if (info.total != -1)
@@ -210,8 +234,7 @@ namespace MowerUpdater
                 folder.Delete();
             }
 
-            System.Windows.Forms.MessageBox.Show(
-                $"已经成功安装版本 {VersionsComboBox.SelectedValue}", "安装成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Dispatcher.Invoke(OnInstallSuccess);
         }
 
         private async void InstallButtonClicked(object sender, RoutedEventArgs e)
