@@ -1,0 +1,4 @@
+;!@Install@!UTF-8!
+Progress="no"
+ExecuteFile="MowerUpdater.exe"
+;!@InstallEnd@!
