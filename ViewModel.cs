@@ -33,6 +33,7 @@ internal class ViewModel : INotifyPropertyChanged
     LocalVersionInfo _selectedInstallPath = null;
     string _installPath = string.Empty;
     bool _busy = false;
+    bool _useGhproxy = false;
     string _outputLogs = string.Empty;
     string _ignorePaths = string.Empty;
 
@@ -207,6 +208,18 @@ internal class ViewModel : INotifyPropertyChanged
             {
                 _busy = value;
                 PropertyChanged?.Invoke(this, new(nameof(Busy)));
+            }
+        }
+    }
+    public bool UseGhproxy
+    {
+        get => _useGhproxy;
+        set
+        {
+            if (value != _useGhproxy)
+            {
+                _useGhproxy = value;
+                PropertyChanged?.Invoke(this, new(nameof(UseGhproxy)));
             }
         }
     }

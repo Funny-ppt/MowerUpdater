@@ -66,9 +66,11 @@
                 Style="{StaticResource ResourceKey=Base}"
                 Content="选择文件" Click="SelectConfigPathButtonClicked" />
         <Label Grid.Row="1" Grid.Column="0">镜像源</Label>
-        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="1"
                  Style="{StaticResource ResourceKey=Base}"
                  Text="{Binding Mirror, Mode=TwoWay}" />
+        <CheckBox Grid.Row="1" Grid.Column="2" FontSize="12" IsChecked="{Binding UseGhproxy}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">可用时从ghproxy下载</CheckBox>
         <Label Grid.Row="2" Grid.Column="0">版本</Label>
         <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
                   Style="{StaticResource ResourceKey=Base}"
@@ -97,7 +99,7 @@
         </ScrollViewer>
 
         <TextBlock Grid.Row="7" Grid.ColumnSpan="3" HorizontalAlignment="Center">
-            MowerUpdater v0.0.3 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater" RequestNavigate="Hyperlink_RequestNavigate">Github项目地址</Hyperlink>
+            MowerUpdater v0.0.4 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater" RequestNavigate="Hyperlink_RequestNavigate">Github项目地址</Hyperlink>
             BUG反馈和功能请求请在 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater/issues" RequestNavigate="Hyperlink_RequestNavigate">Issues</Hyperlink> 中提出
         </TextBlock>
     </Grid>

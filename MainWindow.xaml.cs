@@ -5,7 +5,9 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -208,9 +210,36 @@ namespace MowerUpdater
 
         private async Task NewInstall(string mirror, string version, string path)
         {
+            var ghproxyUrl = $"https://ghproxy.com/https://github.com/ArkMowers/arknights-mower/releases/download/{version}/{version}.zip";
             var url = $"{mirror}/{version}.zip";
 
+
             var dest = Path.Combine(Path.GetTempPath(), "MowerUpdater", $"{version}.zip");
+            try
+            {
+                if (ViewModel.UseGhproxy)
+                {
+                    _buffer.Enqueue("尝试使用GhProxy下载");
+                    var client = ViewModel.Client;
+                    using var resp = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, ghproxyUrl));
+                    resp.EnsureSuccessStatusCode();
+
+                    _buffer.Enqueue("GhProxy访问成功，正在下载");
+                    await EnsureDownloaded(ghproxyUrl, dest);
+                    _buffer.Enqueue("GhProxy下载成功");
+                }
+                else
+                {
+                    _buffer.Enqueue("使用镜像下载");
+                }
+            }
+            catch
+            {
+                // 如果GhProxy下载失败，使用镜像源
+                // 注意，如果下载成功，则不会在没有指定forceRedownload时再次下载，所以下面的调用是安全的、快速的
+
+                _buffer.Enqueue("GhProxy下载失败，将使用镜像下载");
+            }
             await EnsureDownloaded(url, dest);
 
             using var fs = File.OpenRead(dest);
