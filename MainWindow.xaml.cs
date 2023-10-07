@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -266,11 +267,54 @@ namespace MowerUpdater
             await Dispatcher.Invoke(OnInstallSuccess);
         }
 
+        private bool PreInstallCheck()
+        {
+            var installPath = ViewModel.SelectedInstallPath.Path;
+            var containsNonAscii = installPath.Any(ch => ch >= (char)128);
+            if (containsNonAscii)
+            {
+                System.Windows.Forms.MessageBox.Show("安装目录路径必须不包含中文，否则Mower无法正常运行", "安装失败");
+                return false;
+            }
+
+            var procs = Process.GetProcessesByName("mower")
+                .Concat(Process.GetProcessesByName("Mower0"));
+            var failToFetch = false;
+
+            foreach (var proc in procs)
+            {
+                try
+                {
+                    if (proc.MainModule.FileName.StartsWith(installPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        System.Windows.Forms.MessageBox.Show("检测到Mower正在运行，请关闭后再更新", "安装失败", MessageBoxButtons.OK);
+                        return false;
+                    }
+                }
+                catch
+                {
+                    failToFetch = true;
+                }
+            }
+            if (failToFetch)
+            {
+                var result = System.Windows.Forms.MessageBox.Show(
+                    "检测到Mower正在运行，未能获取到正在运行Mower的安装目录，请确认关闭当前安装目录下的Mower再继续",
+                    "安装确认", MessageBoxButtons.OKCancel);
+                return result == System.Windows.Forms.DialogResult.OK;
+            }
+            return true;
+        }
+
         private async void InstallButtonClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.Busy = true;
             try
             {
+                if (!PreInstallCheck())
+                {
+                    return;
+                }
 
                 int interval = 1000;    // 之前因为没关闭文件流导致报错的一个修复尝试
                 int retries = 3;        // 想了想也没必要删除
