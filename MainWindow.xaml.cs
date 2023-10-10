@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Security.Policy;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -259,26 +260,29 @@ namespace MowerUpdater
             }
             await EnsureDownloaded(url, dest);
 
-            using var fs = File.OpenRead(dest);
-            using var zipArchive = new ZipArchive(fs);
-            Directory.CreateDirectory(path);
-            zipArchive.ExtractToDirectory(path);
-            var folder = new DirectoryInfo(Path.Combine(path, version));
-            if (folder.Exists)
+            await Task.Run(() =>
             {
-                foreach (var item in folder.EnumerateFileSystemInfos())
+                using var fs = File.OpenRead(dest);
+                using var zipArchive = new ZipArchive(fs);
+                Directory.CreateDirectory(path);
+                zipArchive.ExtractToDirectory(path);
+                var folder = new DirectoryInfo(Path.Combine(path, version));
+                if (folder.Exists)
                 {
-                    if (item is DirectoryInfo d)
+                    foreach (var item in folder.EnumerateFileSystemInfos())
                     {
-                        d.MoveTo(Path.Combine(path, d.Name));
+                        if (item is DirectoryInfo d)
+                        {
+                            d.MoveTo(Path.Combine(path, d.Name));
+                        }
+                        if (item is FileInfo f)
+                        {
+                            f.MoveTo(Path.Combine(path, f.Name));
+                        }
                     }
-                    if (item is FileInfo f)
-                    {
-                        f.MoveTo(Path.Combine(path, f.Name));
-                    }
+                    folder.Delete();
                 }
-                folder.Delete();
-            }
+            });
 
             await Dispatcher.Invoke(OnInstallSuccess);
         }

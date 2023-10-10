@@ -22,11 +22,17 @@ internal class WebViewInstaller : IDepInstaller
 
     public bool CheckIfInstalled()
     {
-        var key = Registry.LocalMachine.OpenSubKey(Environment.Is64BitOperatingSystem ? WebViewKeyAmd64 : WebViewKey)
-               ?? Registry.CurrentUser.OpenSubKey(WebViewKey);
-        if (key == null) return false;
-        var version = System.Version.Parse(key.GetValue("pv")?.ToString() ?? "0.0.0.0");
-        return version > VersionConstant;
+        try
+        {
+            var key = Registry.LocalMachine.OpenSubKey(Environment.Is64BitOperatingSystem ? WebViewKeyAmd64 : WebViewKey)
+                   ?? Registry.CurrentUser.OpenSubKey(WebViewKey);
+            var version = System.Version.Parse(key.GetValue("pv")?.ToString() ?? "0.0.0.0");
+            return version > VersionConstant;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task Install(HttpClient client, CancellationToken token = default)
