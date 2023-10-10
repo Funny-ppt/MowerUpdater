@@ -28,6 +28,7 @@ internal class ViewModel : INotifyPropertyChanged
     CancellationTokenSource _cts2; // 用于取消后台目录遍历功能
     string _configPath = string.Empty;
     string _mirror = string.Empty;
+    string[] _channels = new[] { string.Empty };
     ObservableCollection<VersionInfo> _versions = new();
     ObservableCollection<LocalVersionInfo> _possibleInstallPaths = new();
     LocalVersionInfo _selectedInstallPath = null;
@@ -38,27 +39,37 @@ internal class ViewModel : INotifyPropertyChanged
     string _ignorePaths = string.Empty;
 
     static Regex ItemRegex = new(@"<a href=""(.*)"">", RegexOptions.Compiled);
-    async Task FetchVersions(CancellationToken token)
+    async Task FetchVersions(string[] channels, CancellationToken token)
     { // 后台获取版本列表
-        var resp = await _client.GetAsync(_mirror);
-        resp.EnsureSuccessStatusCode();
-
-        var html = await resp.Content.ReadAsStringAsync();
-        var matches = ItemRegex.Matches(html);
         var tasks = new List<Task>();
-        foreach (Match match in matches)
+        foreach (var channel in channels)
         {
-            var val = match.Groups[1].Value;
-            if (!val.StartsWith("..") && val.EndsWith("/"))
+            var url = $"{_mirror}/{channel}";
+            var resp = await _client.GetAsync(url);
+            resp.EnsureSuccessStatusCode();
+
+            var html = await resp.Content.ReadAsStringAsync();
+            var matches = ItemRegex.Matches(html);
+            foreach (Match match in matches)
             {
-                tasks.Add(FetchVersionDetails(val.Substring(0, val.Length - 1), token));
+                var val = match.Groups[1].Value;
+                if (!val.StartsWith("..") && val.EndsWith("/"))
+                {
+                    tasks.Add(FetchVersionDetails(channel, val.Substring(0, val.Length - 1), token));
+                }
             }
         }
+
         Task.WaitAll(tasks.ToArray(), token);
     }
-    async Task FetchVersionDetails(string version, CancellationToken token)
+    async Task FetchVersionDetails(string channel, string version, CancellationToken token)
     { // 后台下载版本细节信息
-        var url = $"{_mirror}/{version}/version.json";
+        var path = version;
+        if (!string.IsNullOrEmpty(channel))
+        {
+            path = $"{channel}/{version}";
+        }
+        var url = $"{_mirror}/{path}/version.json";
         var resp = await _client.GetAsync(url, token);
         resp.EnsureSuccessStatusCode();
 
@@ -149,7 +160,7 @@ internal class ViewModel : INotifyPropertyChanged
                 _cts1?.Dispose();
                 _cts1 = new CancellationTokenSource();
                 _versions.Clear();
-                Task.Run(() => FetchVersions(_cts1.Token));
+                Task.Run(() => FetchVersions(_channels, _cts1.Token));
             }
         }
     }
@@ -254,7 +265,16 @@ internal class ViewModel : INotifyPropertyChanged
     {
         var json = JsonDocument.Parse(File.ReadAllText(configPath));
         var conf = json.RootElement;
-        Mirror = conf.GetProperty("mirror").GetString();
+        if (conf.TryGetProperty("channels", out var channels))
+        {
+            _channels = channels
+                            .EnumerateArray()
+                            .Where(c => c.GetProperty("enable").GetBoolean())
+                            .Select(c => c.GetProperty("name").GetString())
+                            .Append(string.Empty)
+                            .ToArray();
+        }
+        Mirror = conf.GetProperty("mirror").GetString();    
         InstallPath = Path.Combine(conf.GetProperty("install_dir").GetString(),
                                    conf.GetProperty("dir_name").GetString());
         IgnorePaths = string.Join(";", conf.GetProperty("ignores").EnumerateArray().Select(e => e.GetString()));

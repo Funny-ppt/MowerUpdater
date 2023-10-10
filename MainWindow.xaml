@@ -60,11 +60,11 @@
         <Label Grid.Row="0" Grid.Column="0">配置文件</Label>
         <TextBox Grid.Row="0" Grid.Column="1"
                  Style="{StaticResource ResourceKey=Base}"
-                 Text="{Binding ConfigPath, Mode=TwoWay}"
+                 Text="{Binding ConfigPath, Mode=TwoWay}" IsReadOnly="True"
                  x:Name="ConfigPathTextBox" />
         <Button Grid.Row="0" Grid.Column="2"
                 Style="{StaticResource ResourceKey=Base}"
-                Content="选择文件" Click="SelectConfigPathButtonClicked" />
+                Content="编辑文件" Click="EditConfigButtonClicked" />
         <Label Grid.Row="1" Grid.Column="0">镜像源</Label>
         <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="1"
                  Style="{StaticResource ResourceKey=Base}"
@@ -99,7 +99,7 @@
         </ScrollViewer>
 
         <TextBlock Grid.Row="7" Grid.ColumnSpan="3" HorizontalAlignment="Center">
-            MowerUpdater v0.0.4 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater" RequestNavigate="Hyperlink_RequestNavigate">Github项目地址</Hyperlink>
+            MowerUpdater v0.0.5 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater" RequestNavigate="Hyperlink_RequestNavigate">Github项目地址</Hyperlink>
             BUG反馈和功能请求请在 <Hyperlink NavigateUri="https://github.com/Funny-ppt/MowerUpdater/issues" RequestNavigate="Hyperlink_RequestNavigate">Issues</Hyperlink> 中提出
         </TextBlock>
     </Grid>

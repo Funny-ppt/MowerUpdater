@@ -27,6 +27,7 @@ namespace MowerUpdater
         RsyncHost _host;
         ConcurrentQueue<string> _buffer = new();
         DispatcherTimer _updateTimer;
+        FileSystemWatcher _watcher;
         RsyncHost host
         {
             get => _host;
@@ -82,7 +83,13 @@ namespace MowerUpdater
                 File.WriteAllText(configPath, UpdaterConfig.DefaultConfigJson);
             }
             ViewModel.ConfigPath = configPath;
-
+            _watcher = new(configDir, "config.json");
+            _watcher.Changed += async (e, args) =>
+            {
+                await Task.Delay(500);
+                Dispatcher.Invoke(() => ViewModel.Load(ViewModel.ConfigPath));
+            };
+            _watcher.EnableRaisingEvents = true;
 
             // 缓冲区刷新计时器
             _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(125) };
@@ -133,7 +140,16 @@ namespace MowerUpdater
                     {
                         await dep.Install(ViewModel.Client);
                     }
+                    _buffer.Enqueue("Mower所有必要的依赖已经安装");
                 }
+                else
+                {
+                    _buffer.Enqueue($"跳过以下依赖项: {depNames}");
+                }
+            }
+            else
+            {
+                _buffer.Enqueue("Mower所有必要的依赖已经安装");
             }
 
             System.Windows.Forms.MessageBox.Show(
@@ -402,6 +418,11 @@ namespace MowerUpdater
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
             System.Diagnostics.Process.Start(e.Uri.ToString());
+        }
+
+        private void EditConfigButtonClicked(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Process.Start(ViewModel.ConfigPath);
         }
     }
 }

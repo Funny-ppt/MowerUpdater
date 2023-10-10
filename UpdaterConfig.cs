@@ -8,6 +8,9 @@ internal class UpdaterConfig
 """
 {
     "mirror": "https://mower.zhaozuohong.vip",
+    "channels": [
+        { "name": "alpha", "enable": false }
+    ],
     "ignores": [
         "/*.yml",
         "/*.json",

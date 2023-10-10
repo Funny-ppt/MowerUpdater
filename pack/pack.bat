@@ -9,4 +9,4 @@ cd bin
 cd ..
 
 copy /Y /B 7zSD.sfx + config.txt + archive.7z MowerUpdater.exe
-pause >nul
+REM pause >nul
