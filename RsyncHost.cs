@@ -92,10 +92,10 @@ internal class RsyncHost : IDisposable
 
         var path = Path.Combine(conf["install_dir"].ToString(), conf["dir_name"].ToString());
         if (path.Length >= 2 && path[1] == ':')
-            sb.Append(" /cygdrive/")
+            sb.Append(" '/cygdrive/")
               .Append(tolower(path[0]))
               .Append(path.Substring(2).Replace('\\', '/'))
-              .Append('/');
+              .Append("/'");
         else
             sb.Append(' ').Append(path.Replace('\\', '/')).Append('/');
         return sb.ToString();

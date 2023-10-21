@@ -46,7 +46,10 @@ internal class ViewModel : INotifyPropertyChanged
         {
             var url = $"{_mirror}/{channel}";
             var resp = await _client.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
+            if (!resp.IsSuccessStatusCode)
+            {
+                continue;
+            }
 
             var html = await resp.Content.ReadAsStringAsync();
             var matches = ItemRegex.Matches(html);
@@ -60,7 +63,10 @@ internal class ViewModel : INotifyPropertyChanged
             }
         }
 
-        Task.WaitAll(tasks.ToArray(), token);
+        if (tasks.Any())
+        {
+            Task.WaitAll(tasks.ToArray(), token);
+        }
     }
     async Task FetchVersionDetails(string channel, string version, CancellationToken token)
     { // 后台下载版本细节信息
