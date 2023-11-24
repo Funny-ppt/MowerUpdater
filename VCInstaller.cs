@@ -20,6 +20,7 @@ internal class VCInstaller : IDepInstaller
 
     public bool CheckIfInstalled()
     {
+        if (MsiHelper.CheckIfInstalled("Microsoft Visual C++ 2015-")) return true;
         try
         {
             var parentKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Classes\Installer\Dependencies");

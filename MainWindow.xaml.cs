@@ -47,7 +47,6 @@ namespace MowerUpdater
             App.Logger = _buffer.Enqueue;
             InitializeComponent();
 
-
             if (VersionsComboBox.ItemsSource is INotifyCollectionChanged col1) 
             { // 稍稍改变多选框的逻辑，使得有可选项时立刻选中第一项
                 col1.CollectionChanged += (e, args) =>
@@ -127,7 +126,7 @@ namespace MowerUpdater
 
             _buffer.Enqueue("正在检查运行Mower的必要依赖");
 
-            var deps = new IDepInstaller[] { new VCInstaller(), new WebViewInstaller() };
+            var deps = new IDepInstaller[] { new VCInstaller(), new VC2013Installer(), new WebViewInstaller() };
             var depsToInstall = deps.Where(dep => !dep.CheckIfInstalled());
 
             if (depsToInstall.Any())
@@ -139,9 +138,20 @@ namespace MowerUpdater
                 {
                     foreach (var dep in depsToInstall)
                     {
+                        _buffer.Enqueue($"正在安装 {dep.Name} ...");
                         await dep.Install(ViewModel.Client);
+
                     }
-                    _buffer.Enqueue("Mower所有必要的依赖已经安装");
+
+                    depsToInstall = deps.Where(dep => !dep.CheckIfInstalled());
+                    if (!depsToInstall.Any()) {
+                        _buffer.Enqueue("Mower所有必要的依赖已经安装");
+                    }
+                    else
+                    {
+                        depNames = string.Join(", ", depsToInstall.Select(dep => dep.Name));
+                        _buffer.Enqueue($"检测到以下依赖未安装成功: {depNames}");
+                    }
                 }
                 else
                 {

@@ -107,8 +107,10 @@
     <Compile Include="FileDownloader.cs" />
     <Compile Include="IDepInstaller.cs" />
     <Compile Include="LocalVersionInfo.cs" />
+    <Compile Include="MsiHelper.cs" />
     <Compile Include="RsyncHost.cs" />
     <Compile Include="UpdaterConfig.cs" />
+    <Compile Include="VC2013Installer.cs" />
     <Compile Include="VCInstaller.cs" />
     <Compile Include="VersionInfo.cs" />
     <Compile Include="ViewModel.cs" />
