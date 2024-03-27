@@ -8,9 +8,12 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.XPath;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
+using System.Security.Cryptography;
 
 namespace MowerUpdater;
 
@@ -38,27 +41,53 @@ internal class ViewModel : INotifyPropertyChanged
     string _outputLogs = string.Empty;
     string _ignorePaths = string.Empty;
 
-    static Regex ItemRegex = new(@"<a href=""(.*)"">", RegexOptions.Compiled);
     async Task FetchVersions(string[] channels, CancellationToken token)
     { // 后台获取版本列表
         var tasks = new List<Task>();
         foreach (var channel in channels)
         {
             var url = $"{_mirror}/{channel}";
-            var resp = await _client.GetAsync(url);
-            if (!resp.IsSuccessStatusCode)
+            var resp0 = await _client.GetAsync($"{url}/xpath.txt");
+            var xpath = "//a";
+            var filter = @"[a-z0-9]{7}/";
+            var bindAttr = "href";
+            if (resp0.IsSuccessStatusCode)
             {
-                continue;
+                try
+                {
+                    var xpathConf = await resp0.Content.ReadAsStringAsync();
+                    var kvp = xpathConf
+                        .Split([';'], StringSplitOptions.RemoveEmptyEntries)
+                        .ToDictionary(
+                            str => str.Substring(0, str.IndexOf('=')),
+                            str => str.Substring(str.IndexOf('=') + 1)
+                        );
+                    if (kvp.TryGetValue("xpath", out var value))
+                    {
+                        xpath = value;
+                    }
+                    if (kvp.TryGetValue("filter", out value))
+                    {
+                        filter = value;
+                    }
+                    if (kvp.TryGetValue("bind-attr", out value))
+                    {
+                        bindAttr = value;
+                    }
+                }
+                catch { }
             }
 
-            var html = await resp.Content.ReadAsStringAsync();
-            var matches = ItemRegex.Matches(html);
-            foreach (Match match in matches)
+            var resp1 = await _client.GetAsync(url);
+            var htmlDoc = new HtmlDocument();
+            htmlDoc.Load(await resp1.Content.ReadAsStreamAsync());
+            var nodes = htmlDoc.DocumentNode.SelectNodes(xpath);
+            foreach (var node in nodes)
             {
-                var val = match.Groups[1].Value;
-                if (!val.StartsWith("..") && val.EndsWith("/"))
+                var text = node.GetAttributeValue(bindAttr, string.Empty);
+                if (Regex.IsMatch(text, filter))
                 {
-                    tasks.Add(FetchVersionDetails(channel, val.Substring(0, val.Length - 1), token));
+                    tasks.Add(FetchVersionDetails(channel, text.Substring(0, text.Length - 1), token));
                 }
             }
         }
