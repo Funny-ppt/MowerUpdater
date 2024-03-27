@@ -51,6 +51,7 @@ internal class ViewModel : INotifyPropertyChanged
             var xpath = "//a";
             var filter = @"[a-z0-9]{7}/";
             var bindAttr = "href";
+            var filterGroup = 0;
             if (resp0.IsSuccessStatusCode)
             {
                 try
@@ -74,6 +75,10 @@ internal class ViewModel : INotifyPropertyChanged
                     {
                         bindAttr = value;
                     }
+                    if (kvp.TryGetValue("filter-group", out value) && int.TryParse(value, out var intValue))
+                    {
+                        filterGroup = intValue;
+                    }
                 }
                 catch { }
             }
@@ -82,12 +87,14 @@ internal class ViewModel : INotifyPropertyChanged
             var htmlDoc = new HtmlDocument();
             htmlDoc.Load(await resp1.Content.ReadAsStreamAsync());
             var nodes = htmlDoc.DocumentNode.SelectNodes(xpath);
+            var filterRegex = new Regex(filter);
             foreach (var node in nodes)
             {
                 var text = node.GetAttributeValue(bindAttr, string.Empty);
-                if (Regex.IsMatch(text, filter))
+                var match = filterRegex.Match(text);
+                if (match.Success)
                 {
-                    tasks.Add(FetchVersionDetails(channel, text.Substring(0, text.Length - 1), token));
+                    tasks.Add(FetchVersionDetails(channel, match.Groups[filterGroup].Value, token));
                 }
             }
         }
